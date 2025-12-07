@@ -9,7 +9,7 @@
 
 # rac-delta 🦝
 
-rac-delta is an open delta-patching protocol made for sync builds of your apps, games, folder or anything you store in a folder!
+rac-delta is an open delta-patching protocol made for sync builds of your apps, games, or anything you store in a folder!
 
 This is the official SDK for NodeJs.
 
