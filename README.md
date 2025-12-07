@@ -3,8 +3,6 @@
   <img src="https://nodejs.org/static/logos/jsIconGreen.svg" alt="node logo" width="100"/>
 </p>
 
-![GitHub License](https://img.shields.io/github/license/raccreative/rac-delta-js)
-
 ---
 
 # rac-delta 🦝
