@@ -24,11 +24,11 @@ jobs:
       - name: Update npm
         run: npm install -g npm@latest
 
-      - run: rm -rf node_modules package-lock.json
-
-      - run: npm i
-
-      - run: npm install @aws-sdk/client-s3 @azure/identity @azure/storage-blob @google-cloud/storage ssh2
+      - name: Install dependencies
+      - run: |
+          rm -rf node_modules package-lock.json
+          npm i
+          npm install @aws-sdk/client-s3 @azure/identity @azure/storage-blob @google-cloud/storage ssh2
 
       - run: npm run test
 
