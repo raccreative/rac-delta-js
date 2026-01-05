@@ -28,6 +28,9 @@ jobs:
 
       - run: npm run test
 
+      - name: Install optional peer deps
+        run: npm install @aws-sdk/client-s3 @azure/identity @azure/storage-blob @google-cloud/storage ssh2
+
       - run: npm run build
 
       - name: Publish to npm
