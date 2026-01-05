@@ -25,7 +25,10 @@ export interface HasherService {
    * @param stream
    * @param onChunk callback that returns the processed bytes
    */
-  hashStream(stream: AsyncChunkStream, onChunk?: (chunk: Uint8Array) => void): Promise<Chunk[]>;
+  hashStream(
+    stream: AsyncChunkStream,
+    onChunk?: (chunk: Uint8Array, hash: string) => void
+  ): Promise<Chunk[]>;
 
   /**
    * Returns a hash of a buffer

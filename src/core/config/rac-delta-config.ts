@@ -12,6 +12,7 @@ export interface S3StorageConfig extends BaseStorageConfig {
   endpoint?: Nullish<string>;
   region?: Nullish<string>;
   bucket: string;
+  // client: provide already configured client?
   credentials: {
     accessKeyId: string;
     secretAccessKey: string;

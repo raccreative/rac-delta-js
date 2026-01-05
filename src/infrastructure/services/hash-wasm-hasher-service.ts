@@ -61,7 +61,7 @@ export class HashWasmHasherService implements HasherService {
 
   async hashStream(
     stream: AsyncChunkStream,
-    onChunk?: Nullish<(chunk: Uint8Array) => void>
+    onChunk?: Nullish<(chunk: Uint8Array, hash: string) => void>
   ): Promise<Chunk[]> {
     const chunks: Chunk[] = [];
     let offset = 0;
@@ -73,7 +73,7 @@ export class HashWasmHasherService implements HasherService {
         const chunkHash = chunkHasher.digest('hex');
 
         if (onChunk) {
-          onChunk(chunk);
+          onChunk(chunk, chunkHash);
         }
 
         chunks.push({

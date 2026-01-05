@@ -14,17 +14,19 @@ import { DefaultUrlUploadPipeline } from '../pipelines/default-url-upload-pipeli
 
 import { ServiceBundle } from './service-factory';
 
-export type PipelineBundleFor<S extends StorageAdapter> = S['type'] extends 'hash'
-  ? {
-      upload: HashUploadPipeline;
-      download: HashDownloadPipeline;
-    }
-  : S['type'] extends 'url'
+export type PipelineBundleFor<S extends StorageAdapter> = S extends any
+  ? S['type'] extends 'hash'
     ? {
-        upload: UrlUploadPipeline;
-        download: UrlDownloadPipeline;
+        upload: HashUploadPipeline;
+        download: HashDownloadPipeline;
       }
-    : never;
+    : S['type'] extends 'url'
+      ? {
+          upload: UrlUploadPipeline;
+          download: UrlDownloadPipeline;
+        }
+      : never
+  : never;
 
 export class PipelineFactory {
   static create<S extends StorageAdapter>(
