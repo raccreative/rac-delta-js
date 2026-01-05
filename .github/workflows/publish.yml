@@ -27,6 +27,10 @@ jobs:
       - name: Install dependencies
         run: npm i
 
+      - name: Install peer dependencies for build
+        run: |
+          npm install @aws-sdk/client-s3 @azure/identity @azure/storage-blob @google-cloud/storage ssh2 --no-save
+
       - run: npm run test
 
       - run: npm run build

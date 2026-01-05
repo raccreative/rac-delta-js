@@ -1,4 +1,3 @@
-import { SFTPWrapper, Client } from 'ssh2';
 import { Readable } from 'stream';
 import { join } from 'path';
 
@@ -10,16 +9,16 @@ import { RDIndex } from '../../core/models';
 type SFTPError = Error & { code?: number };
 
 export class SSHStorageAdapter extends HashStorageAdapter {
-  private sftp: SFTPWrapper | null = null;
-  private client: Client | null = null;
+  private sftp: any = null;
+  private client: any = null;
+
+  private connecting: Promise<any> | null = null;
 
   constructor(private readonly config: SSHStorageConfig) {
     super();
   }
 
-  private connecting: Promise<SFTPWrapper> | null = null;
-
-  private async connect(): Promise<SFTPWrapper> {
+  private async connect(): Promise<any> {
     if (this.sftp) {
       return this.sftp;
     }
@@ -28,7 +27,9 @@ export class SSHStorageAdapter extends HashStorageAdapter {
       return this.connecting;
     }
 
-    this.connecting = new Promise<SFTPWrapper>((resolve, reject) => {
+    const { Client } = await import('ssh2');
+
+    this.connecting = new Promise((resolve, reject) => {
       const client = new Client();
       client
         .on('ready', () => {
@@ -116,7 +117,7 @@ export class SSHStorageAdapter extends HashStorageAdapter {
     const remotePath = this.resolveChunkPath(hash);
 
     return new Promise((resolve) => {
-      sftp.stat(remotePath, (error) => resolve(error ? false : true));
+      sftp.stat(remotePath, (error: any) => resolve(error ? false : true));
     });
   }
 
@@ -140,7 +141,7 @@ export class SSHStorageAdapter extends HashStorageAdapter {
     const prefix = join(this.config.pathPrefix ?? '', 'chunks');
 
     return new Promise((resolve, reject) => {
-      sftp.readdir(prefix, (error, list) => {
+      sftp.readdir(prefix, (error: any, list: any[]) => {
         if (error) {
           return reject(error);
         }
@@ -155,7 +156,7 @@ export class SSHStorageAdapter extends HashStorageAdapter {
     const remotePath = this.resolveChunkPath(hash);
 
     return new Promise((resolve, reject) => {
-      sftp.stat(remotePath, (error: Nullish<SFTPError>, stats) => {
+      sftp.stat(remotePath, (error: Nullish<SFTPError>, stats: any) => {
         if (error) {
           if (error.code === 2) {
             return resolve(null);
@@ -251,7 +252,7 @@ export class SSHStorageAdapter extends HashStorageAdapter {
     }
   }
 
-  private async createDirIfNotFound(sftp: SFTPWrapper, dir: string): Promise<void> {
+  private async createDirIfNotFound(sftp: any, dir: string): Promise<void> {
     const parts = dir.split('/').filter(Boolean);
     let current = '';
 
@@ -267,15 +268,15 @@ export class SSHStorageAdapter extends HashStorageAdapter {
     }
   }
 
-  private promisifyStat(sftp: SFTPWrapper, path: string) {
+  private promisifyStat(sftp: any, path: string) {
     return new Promise((resolve, reject) => {
-      sftp.stat(path, (err, stats) => (err ? reject(err) : resolve(stats)));
+      sftp.stat(path, (err: any, stats: any) => (err ? reject(err) : resolve(stats)));
     });
   }
 
-  private promisifyMkdir(sftp: SFTPWrapper, path: string): Promise<void> {
+  private promisifyMkdir(sftp: any, path: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      sftp.mkdir(path, (err) => (err ? reject(err) : resolve()));
+      sftp.mkdir(path, (err: any) => (err ? reject(err) : resolve()));
     });
   }
 }
