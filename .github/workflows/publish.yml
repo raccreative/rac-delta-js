@@ -24,7 +24,7 @@ jobs:
       - name: Update npm
         run: npm install -g npm@latest
 
-      - run: npm ci
+      - run: npm i
 
       - run: npm run test
 
