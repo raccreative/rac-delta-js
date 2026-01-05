@@ -27,8 +27,9 @@ jobs:
       - name: Install dependencies
         run: |
           rm -rf node_modules package-lock.json
+          npm cache clean --force
           npm i
-          npm install @aws-sdk/client-s3 @azure/identity @azure/storage-blob @google-cloud/storage ssh2
+          npm install --no-save @aws-sdk/client-s3 @azure/identity @azure/storage-blob @google-cloud/storage ssh2
 
       - run: npm run test
 
