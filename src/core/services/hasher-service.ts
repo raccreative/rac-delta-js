@@ -23,10 +23,12 @@ export interface HasherService {
    * Will process a stream of Chunks and return an array of hashed Chunks
    *
    * @param stream
+   * @param chunkSize The size (in bytes) chunks will need to be processed and emited.
    * @param onChunk callback that returns the processed bytes
    */
   hashStream(
     stream: AsyncChunkStream,
+    chunkSize: number,
     onChunk?: (chunk: Uint8Array, hash: string) => void
   ): Promise<Chunk[]>;
 

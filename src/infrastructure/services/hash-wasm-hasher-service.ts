@@ -61,28 +61,57 @@ export class HashWasmHasherService implements HasherService {
 
   async hashStream(
     stream: AsyncChunkStream,
+    chunkSize: number,
     onChunk?: Nullish<(chunk: Uint8Array, hash: string) => void>
   ): Promise<Chunk[]> {
+    if (!chunkSize || chunkSize <= 0) {
+      throw new Error('chunkSize must be a positive number.');
+    }
+
     const chunks: Chunk[] = [];
     let offset = 0;
+    let buffer = Buffer.alloc(0);
 
     try {
-      for await (const chunk of stream) {
+      for await (const data of stream) {
+        buffer = Buffer.concat([buffer, data]);
+
+        while (buffer.length >= chunkSize) {
+          const emitChunk = buffer.subarray(0, chunkSize);
+
+          const chunkHasher = await createBLAKE3();
+          chunkHasher.update(emitChunk);
+          const chunkHash = chunkHasher.digest('hex');
+
+          if (onChunk) {
+            onChunk(emitChunk, chunkHash);
+          }
+
+          chunks.push({
+            hash: chunkHash,
+            offset,
+            size: emitChunk.length,
+          });
+
+          offset += emitChunk.length;
+          buffer = buffer.subarray(chunkSize);
+        }
+      }
+
+      if (buffer.length > 0) {
         const chunkHasher = await createBLAKE3();
-        chunkHasher.update(chunk);
+        chunkHasher.update(buffer);
         const chunkHash = chunkHasher.digest('hex');
 
         if (onChunk) {
-          onChunk(chunk, chunkHash);
+          onChunk(buffer, chunkHash);
         }
 
         chunks.push({
           hash: chunkHash,
           offset,
-          size: chunk.length,
+          size: buffer.length,
         });
-
-        offset += chunk.length;
       }
 
       if (stream.close) {
