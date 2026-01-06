@@ -84,7 +84,8 @@ export class HashWasmHasherService implements HasherService {
           const chunkHash = chunkHasher.digest('hex');
 
           if (onChunk) {
-            onChunk(emitChunk, chunkHash);
+            // onChunk could be a promise
+            await Promise.resolve(onChunk(emitChunk, chunkHash));
           }
 
           chunks.push({
@@ -104,7 +105,7 @@ export class HashWasmHasherService implements HasherService {
         const chunkHash = chunkHasher.digest('hex');
 
         if (onChunk) {
-          onChunk(buffer, chunkHash);
+          await Promise.resolve(onChunk(buffer, chunkHash));
         }
 
         chunks.push({
