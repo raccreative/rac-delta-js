@@ -60,10 +60,14 @@ export class MemoryDeltaService implements DeltaService {
     };
   }
 
-  async createFileEntryFromStream(stream: AsyncChunkStream, path: string): Promise<FileEntry> {
+  async createFileEntryFromStream(
+    stream: AsyncChunkStream,
+    path: string,
+    chunkSize: number
+  ): Promise<FileEntry> {
     const fileHasher = await this.hasher.createStreamingHasher();
 
-    const chunks = await this.hasher.hashStream(stream, (chunk) => {
+    const chunks = await this.hasher.hashStream(stream, chunkSize, (chunk) => {
       fileHasher.update(chunk);
     });
 

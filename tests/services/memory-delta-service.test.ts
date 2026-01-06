@@ -26,11 +26,12 @@ describe('MemoryDeltaService', () => {
     const hasher = new HashWasmHasherService();
     const service = new MemoryDeltaService(hasher);
 
-    const fileEntry = await service.createFileEntryFromStream(stream, 'test.txt');
+    const fileEntry = await service.createFileEntryFromStream(stream, 'test.txt', 1024 * 1024);
 
     expect(fileEntry.path).toBe('test.txt');
     expect(fileEntry.size).toBe(data.length);
-    expect(fileEntry.chunks.length).toBe(1);
+
+    expect(fileEntry.chunks.length).toBe(Math.ceil(data.length / (1024 * 1024)));
     expect(fileEntry.chunks[0].size).toBe(data.length);
 
     const expectedHash = await hasher.hashBuffer(data);

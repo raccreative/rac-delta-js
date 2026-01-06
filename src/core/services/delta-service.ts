@@ -37,8 +37,13 @@ export interface DeltaService {
    *
    * @param stream An async stream providing file chunks.
    * @param path Relative path of the source file
+   * @param chunkSize Size in bytes of chunk that will be processed
    */
-  createFileEntryFromStream(stream: AsyncChunkStream, path: string): Promise<FileEntry>;
+  createFileEntryFromStream(
+    stream: AsyncChunkStream,
+    path: string,
+    chunkSize: number
+  ): Promise<FileEntry>;
 
   /**
    * Compare two rd-index.json and generate a DeltaPlan. (Neutral method, for more specific methods use compareForUpload or compareForDownload)

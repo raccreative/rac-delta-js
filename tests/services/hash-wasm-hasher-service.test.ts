@@ -69,16 +69,32 @@ describe('HashWasmHasherService', () => {
     const seen: Buffer[] = [];
 
     const readable = Readable.from([data]);
-    const asyncStream: UnknownAny = readable as AsyncIterable<Uint8Array>;
-    asyncStream.nextChunk = async () => data;
-    asyncStream.close = async () => {};
 
-    const chunks = await service.hashStream(asyncStream, (chunk) => seen.push(Buffer.from(chunk)));
+    const asyncStream = {
+      [Symbol.asyncIterator]: () => readable[Symbol.asyncIterator](),
+      nextChunk: async () => data,
+      close: async () => {},
+    };
 
-    expect(chunks).toHaveLength(1);
-    expect(chunks[0].size).toBe(data.length);
-    expect(seen.length).toBe(1);
-    expect(Buffer.compare(seen[0], data)).toBe(0);
+    const CHUNK_SIZE = 8;
+
+    const chunks = await service.hashStream(asyncStream, CHUNK_SIZE, (chunk) => {
+      seen.push(Buffer.from(chunk));
+    });
+
+    const expectedChunks = Math.ceil(data.length / CHUNK_SIZE);
+    expect(chunks).toHaveLength(expectedChunks);
+    expect(seen).toHaveLength(expectedChunks);
+
+    for (let i = 0; i < chunks.length; i++) {
+      const expectedSize =
+        i === chunks.length - 1 ? data.length % CHUNK_SIZE || CHUNK_SIZE : CHUNK_SIZE;
+      expect(chunks[i].size).toBe(expectedSize);
+      expect(seen[i].length).toBe(expectedSize);
+    }
+
+    const recombined = Buffer.concat(seen);
+    expect(Buffer.compare(recombined, data)).toBe(0);
   });
 
   it('should create a streaming hasher and produce consistent output', async () => {
