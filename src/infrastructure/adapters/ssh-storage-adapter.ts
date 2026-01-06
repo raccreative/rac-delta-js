@@ -8,6 +8,7 @@ import { RDIndex } from '../../core/models';
 
 type SFTPError = Error & { code?: number };
 
+// TODO: Replace anys with ssh2 types and see if peerDependencies break
 export class SSHStorageAdapter extends HashStorageAdapter {
   private sftp: any = null;
   private client: any = null;

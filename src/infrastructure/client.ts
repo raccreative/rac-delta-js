@@ -8,7 +8,7 @@ import {
 
 import { PipelineBundleFor, PipelineFactory } from './factories/pipeline-factory';
 import { AdapterFromConfig, StorageAdapterFactory } from './factories/storage-adpater-factory';
-import { ServiceFactory } from './factories/service-factory';
+import { ServiceBundle, ServiceFactory } from './factories/service-factory';
 
 /**
  * Main entry point of the RacDelta SDK.
@@ -45,17 +45,31 @@ export class RacDeltaClient<C extends StorageConfig = StorageConfig> {
   readonly reconstruction: ReconstructionService;
   readonly pipelines: PipelineBundleFor<AdapterFromConfig<C>>;
 
-  constructor(config: RacDeltaConfig & { storage: C }) {
+  private constructor(
+    config: RacDeltaConfig & { storage: C },
+    storage: AdapterFromConfig<C>,
+    services: ServiceBundle
+  ) {
     this.config = config;
+    this.storage = storage;
 
-    this.storage = StorageAdapterFactory.create(config.storage) as unknown as AdapterFromConfig<C>;
-
-    const services = ServiceFactory.create();
     this.delta = services.delta;
     this.hasher = services.hasher;
     this.validation = services.validation;
     this.reconstruction = services.reconstruction;
 
     this.pipelines = PipelineFactory.create(this.storage, services, config);
+  }
+
+  static async create<C extends StorageConfig>(
+    config: RacDeltaConfig & { storage: C }
+  ): Promise<RacDeltaClient<C>> {
+    const storage = (await StorageAdapterFactory.create(
+      config.storage
+    )) as unknown as AdapterFromConfig<C>;
+
+    const services = ServiceFactory.create();
+
+    return new RacDeltaClient(config, storage, services);
   }
 }
