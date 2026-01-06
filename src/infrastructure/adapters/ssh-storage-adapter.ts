@@ -97,17 +97,19 @@ export class SSHStorageAdapter extends HashStorageAdapter {
     });
   }
 
-  async putChunk(hash: string, data: Readable): Promise<void> {
+  async putChunk(hash: string, data: Readable | Buffer): Promise<void> {
     const sftp = await this.connect();
     const remotePath = this.resolveChunkPath(hash);
     const dir = remotePath.substring(0, remotePath.lastIndexOf('/'));
+
+    const stream = Buffer.isBuffer(data) ? Readable.from(data) : data;
 
     await this.createDirIfNotFound(sftp, dir);
 
     return new Promise((resolve, reject) => {
       const writeStream = sftp.createWriteStream(remotePath);
 
-      data.pipe(writeStream);
+      stream.pipe(writeStream);
       writeStream.on('close', resolve);
       writeStream.on('error', reject);
     });

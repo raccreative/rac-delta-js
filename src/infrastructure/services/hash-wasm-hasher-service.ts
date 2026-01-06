@@ -74,28 +74,34 @@ export class HashWasmHasherService implements HasherService {
 
     try {
       for await (const data of stream) {
-        buffer = Buffer.concat([buffer, data]);
+        let input = Buffer.isBuffer(data) ? data : Buffer.from(data);
 
-        while (buffer.length >= chunkSize) {
-          const emitChunk = buffer.subarray(0, chunkSize);
+        while (input.length > 0) {
+          const remainingSpace = chunkSize - buffer.length;
+          const take = Math.min(remainingSpace, input.length);
+          buffer = Buffer.concat([buffer, input.subarray(0, take)]);
 
-          const chunkHasher = await createBLAKE3();
-          chunkHasher.update(emitChunk);
-          const chunkHash = chunkHasher.digest('hex');
+          input = input.subarray(take);
 
-          if (onChunk) {
-            // onChunk could be a promise
-            await Promise.resolve(onChunk(emitChunk, chunkHash));
+          if (buffer.length === chunkSize) {
+            const chunkHasher = await createBLAKE3();
+            chunkHasher.update(buffer);
+            const chunkHash = chunkHasher.digest('hex');
+
+            if (onChunk) {
+              // onChunk could be a promise
+              await Promise.resolve(onChunk(buffer, chunkHash));
+            }
+
+            chunks.push({
+              hash: chunkHash,
+              offset,
+              size: buffer.length,
+            });
+
+            offset += buffer.length;
+            buffer = Buffer.alloc(0);
           }
-
-          chunks.push({
-            hash: chunkHash,
-            offset,
-            size: emitChunk.length,
-          });
-
-          offset += emitChunk.length;
-          buffer = buffer.subarray(chunkSize);
         }
       }
 

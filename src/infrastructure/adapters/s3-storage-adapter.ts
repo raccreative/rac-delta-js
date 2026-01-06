@@ -54,7 +54,7 @@ export class S3StorageAdapter extends HashStorageAdapter {
 
   async putChunk(
     hash: string,
-    data: Readable,
+    data: Readable | Buffer,
     opts?: { overwrite?: Nullish<boolean>; size?: Nullish<number> }
   ): Promise<void> {
     const key = this.resolveKey(hash);

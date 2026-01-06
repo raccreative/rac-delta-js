@@ -85,7 +85,7 @@ export class HTTPStorageAdapter extends HashStorageAdapter {
     return nodeStream;
   }
 
-  async putChunk(hash: string, data: Readable): Promise<void> {
+  async putChunk(hash: string, data: Readable | Buffer): Promise<void> {
     const url = this.buildUrl(hash);
 
     const res = await fetch(url, {

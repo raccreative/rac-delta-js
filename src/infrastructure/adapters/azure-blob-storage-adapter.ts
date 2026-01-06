@@ -77,7 +77,11 @@ export class AzureBlobStorageAdapter extends HashStorageAdapter {
     }
   }
 
-  async putChunk(hash: string, data: Readable, opts?: { overwrite?: boolean }): Promise<void> {
+  async putChunk(
+    hash: string,
+    data: Readable | Buffer,
+    opts?: { overwrite?: boolean }
+  ): Promise<void> {
     try {
       const blob = this.container.getBlockBlobClient(this.getChunkPath(hash));
 
@@ -89,9 +93,14 @@ export class AzureBlobStorageAdapter extends HashStorageAdapter {
         }
       }
 
-      await blob.uploadStream(data, 4 * 1024 * 1024, 5, {
-        blobHTTPHeaders: { blobContentType: 'application/octet-stream' },
-      });
+      await blob.uploadStream(
+        Buffer.isBuffer(data) ? Readable.from(data) : data,
+        4 * 1024 * 1024,
+        5,
+        {
+          blobHTTPHeaders: { blobContentType: 'application/octet-stream' },
+        }
+      );
     } catch (error) {
       throw error;
     }

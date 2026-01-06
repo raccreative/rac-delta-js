@@ -41,7 +41,7 @@ export class LocalStorageAdapter extends HashStorageAdapter {
 
   async putChunk(
     hash: string,
-    data: Readable,
+    data: Readable | Buffer,
     opts?: Nullish<{ overwrite?: Nullish<boolean> }>
   ): Promise<void> {
     const path = this.resolveChunkPath(hash);
@@ -59,15 +59,17 @@ export class LocalStorageAdapter extends HashStorageAdapter {
       }
     }
 
+    const stream = Buffer.isBuffer(data) ? Readable.from(data) : data;
+
     await new Promise<void>((resolve, reject) => {
       const writeStream = createWriteStream(path);
 
-      data.pipe(writeStream);
+      stream.pipe(writeStream);
 
       writeStream.on('finish', () => resolve());
       writeStream.on('error', (err) => reject(err));
 
-      data.on('error', (err) => reject(err));
+      stream.on('error', (err) => reject(err));
     });
   }
 

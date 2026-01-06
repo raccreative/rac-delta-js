@@ -40,13 +40,15 @@ export class GCSStorageAdapter extends HashStorageAdapter {
     return file.createReadStream();
   }
 
-  async putChunk(hash: string, data: Readable): Promise<void> {
+  async putChunk(hash: string, data: Readable | Buffer): Promise<void> {
     const file = this.storage.bucket(this.config.bucket).file(this.getPath(hash));
 
     const writeStream = file.createWriteStream({ resumable: false });
 
+    const stream = Buffer.isBuffer(data) ? Readable.from(data) : data;
+
     await new Promise<void>((resolve, reject) => {
-      data.pipe(writeStream).on('finish', resolve).on('error', reject);
+      stream.pipe(writeStream).on('finish', resolve).on('error', reject);
     });
   }
 

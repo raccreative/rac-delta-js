@@ -30,13 +30,13 @@ export abstract class HashStorageAdapter extends StorageAdapter {
    * Upload a chunk from a readable stream
    *
    * @param hash the hash of the chunk
-   * @param data the `Readable` stream
+   * @param data the `Readable` stream or Buffer to upload
    * @param opts.overwrite whether to overwrite chunk if exists or not (depends on the implementation)
    * @param opts.size ContentLength of the chunk, sometimes needed for some adapters
    */
   abstract putChunk(
     hash: string,
-    data: Readable,
+    data: Readable | Buffer,
     opts?: Nullish<{ overwrite?: Nullish<boolean>; size?: Nullish<number> }>
   ): Promise<void>;
 
