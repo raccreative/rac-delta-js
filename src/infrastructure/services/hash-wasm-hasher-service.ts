@@ -62,70 +62,64 @@ export class HashWasmHasherService implements HasherService {
   async hashStream(
     stream: AsyncChunkStream,
     chunkSize: number,
-    onChunk?: Nullish<(chunk: Uint8Array, hash: string) => void>
-  ): Promise<Chunk[]> {
+    onChunk: (data: Buffer, chunk: Chunk) => void
+  ): Promise<void> {
     if (!chunkSize || chunkSize <= 0) {
       throw new Error('chunkSize must be a positive number.');
     }
 
-    const chunks: Chunk[] = [];
     let offset = 0;
-    let buffer = Buffer.alloc(0);
+    let buffer = Buffer.allocUnsafe(chunkSize);
+    let bufferLen = 0;
 
     try {
       for await (const data of stream) {
         let input = Buffer.isBuffer(data) ? data : Buffer.from(data);
 
         while (input.length > 0) {
-          const remainingSpace = chunkSize - buffer.length;
-          const take = Math.min(remainingSpace, input.length);
-          buffer = Buffer.concat([buffer, input.subarray(0, take)]);
+          const take = Math.min(chunkSize - bufferLen, input.length);
+          input.copy(buffer, bufferLen, 0, take);
 
+          bufferLen += take;
           input = input.subarray(take);
 
-          if (buffer.length === chunkSize) {
+          if (bufferLen === chunkSize) {
+            const chunkView = buffer.subarray(0, bufferLen);
+            const chunk = Buffer.from(chunkView);
+
             const chunkHasher = await createBLAKE3();
-            chunkHasher.update(buffer);
+            chunkHasher.update(chunk);
             const chunkHash = chunkHasher.digest('hex');
 
-            if (onChunk) {
-              // onChunk could be a promise
-              await Promise.resolve(onChunk(buffer, chunkHash));
-            }
+            // onChunk could be a promise
+            await Promise.resolve(onChunk(chunk, { hash: chunkHash, offset, size: bufferLen }));
 
-            chunks.push({
-              hash: chunkHash,
-              offset,
-              size: buffer.length,
-            });
-
-            offset += buffer.length;
-            buffer = Buffer.alloc(0);
+            offset += bufferLen;
+            bufferLen = 0;
           }
         }
       }
 
-      if (buffer.length > 0) {
+      if (bufferLen > 0) {
+        const chunkView = buffer.subarray(0, bufferLen);
+        const chunk = Buffer.from(chunkView);
+
         const chunkHasher = await createBLAKE3();
-        chunkHasher.update(buffer);
+        chunkHasher.update(chunk);
         const chunkHash = chunkHasher.digest('hex');
 
-        if (onChunk) {
-          await Promise.resolve(onChunk(buffer, chunkHash));
-        }
-
-        chunks.push({
-          hash: chunkHash,
-          offset,
-          size: buffer.length,
-        });
+        await Promise.resolve(
+          onChunk(chunk, {
+            hash: chunkHash,
+            offset,
+            size: bufferLen,
+          })
+        );
       }
 
       if (stream.close) {
         await stream.close();
       }
-
-      return chunks;
     } catch (err: unknown) {
       if (err instanceof Error) {
         throw new Error(`HasherService.hashStream failed: ${err.message}`);

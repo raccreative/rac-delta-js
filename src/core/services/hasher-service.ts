@@ -20,17 +20,17 @@ export interface HasherService {
   hashFile(filePath: string, rootDir: string, chunkSize: number): Promise<FileEntry>;
 
   /**
-   * Will process a stream of Chunks and return an array of hashed Chunks
+   * Will process a stream of Chunks and return in a callback each processed chunk
    *
    * @param stream
    * @param chunkSize The size (in bytes) chunks will need to be processed and emited.
-   * @param onChunk callback that returns the processed bytes
+   * @param onChunk callback that returns the processed chunk
    */
   hashStream(
     stream: AsyncChunkStream,
     chunkSize: number,
-    onChunk?: (chunk: Uint8Array, hash: string) => void
-  ): Promise<Chunk[]>;
+    onChunk: (data: Buffer, chunk: Chunk) => void
+  ): Promise<void>;
 
   /**
    * Returns a hash of a buffer
