@@ -5,6 +5,7 @@ import { join } from 'path';
 
 import { HashWasmHasherService } from '../../src/infrastructure/services/hash-wasm-hasher-service';
 import { UnknownAny } from '../../src/core/types';
+import { Chunk } from '../../src/core/models';
 
 const TMP_DIR = join(process.cwd(), 'tmp-hash-tests');
 const FILE_PATH = join(TMP_DIR, 'test.txt');
@@ -78,8 +79,11 @@ describe('HashWasmHasherService', () => {
 
     const CHUNK_SIZE = 8;
 
-    const chunks = await service.hashStream(asyncStream, CHUNK_SIZE, (chunk) => {
-      seen.push(Buffer.from(chunk));
+    const chunks: Chunk[] = [];
+
+    await service.hashStream(asyncStream, CHUNK_SIZE, (data, chunk) => {
+      seen.push(Buffer.from(data));
+      chunks.push(chunk);
     });
 
     const expectedChunks = Math.ceil(data.length / CHUNK_SIZE);

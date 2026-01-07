@@ -2,7 +2,7 @@ import { join, isAbsolute, resolve } from 'path';
 import { stat, readdir } from 'fs/promises';
 
 import { AsyncChunkStream, DeltaService, HasherService } from '../../core/services';
-import { RDIndex, DeltaPlan, FileEntry, ChunkEntry } from '../../core/models';
+import { RDIndex, DeltaPlan, FileEntry, ChunkEntry, Chunk } from '../../core/models';
 import { invariant } from '../../core/utils/invariant';
 import { Nullish } from '../../core/types';
 
@@ -67,8 +67,11 @@ export class MemoryDeltaService implements DeltaService {
   ): Promise<FileEntry> {
     const fileHasher = await this.hasher.createStreamingHasher();
 
-    const chunks = await this.hasher.hashStream(stream, chunkSize, (chunk) => {
-      fileHasher.update(chunk);
+    const chunks: Chunk[] = [];
+
+    await this.hasher.hashStream(stream, chunkSize, (data, chunk) => {
+      fileHasher.update(data);
+      chunks.push(chunk);
     });
 
     const fileHash = fileHasher.digest('hex');
