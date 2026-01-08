@@ -74,14 +74,6 @@ export class HashWasmHasherService implements HasherService {
 
     try {
       for await (const data of stream) {
-        console.log(
-          '[HASHSTREAM] Received data length:',
-          data.length,
-          'bufferLen',
-          bufferLen,
-          'rss:',
-          process.memoryUsage().rss
-        );
         let input = Buffer.isBuffer(data) ? data : Buffer.from(data);
 
         while (input.length > 0) {
@@ -100,9 +92,7 @@ export class HashWasmHasherService implements HasherService {
             const chunkHash = chunkHasher.digest('hex');
 
             // onChunk could be a promise
-            console.log('[HASHSTREAM] Emitting chunk', { offset, size: bufferLen });
             await Promise.resolve(onChunk(chunk, { hash: chunkHash, offset, size: bufferLen }));
-            console.log('[HASHSTREAM] onChunk done', { offset });
 
             offset += bufferLen;
             bufferLen = 0;
@@ -118,7 +108,6 @@ export class HashWasmHasherService implements HasherService {
         chunkHasher.update(chunk);
         const chunkHash = chunkHasher.digest('hex');
 
-        console.log('[HASHSTREAM] Emitting chunk on if', { offset, size: bufferLen });
         await Promise.resolve(
           onChunk(chunk, {
             hash: chunkHash,
@@ -126,13 +115,11 @@ export class HashWasmHasherService implements HasherService {
             size: bufferLen,
           })
         );
-        console.log('[HASHSTREAM] onChunk if done', { offset });
       }
 
       if (stream.close) {
         await stream.close();
       }
-      console.log('[HASHSTREAM] Finished.');
     } catch (err: unknown) {
       if (err instanceof Error) {
         throw new Error(`HasherService.hashStream failed: ${err.message}`);
