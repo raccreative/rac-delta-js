@@ -164,17 +164,34 @@ export class MemoryReconstructionService implements ReconstructionService {
   }
 
   // This will reconstruct to stream, not to disk
-  async reconstructToStream(entry: FileEntry, chunkSource: ChunkSource): Promise<Readable> {
+  async reconstructToStream(
+    entry: FileEntry,
+    chunkSource: ChunkSource,
+    maxConcurrency: number = 5
+  ): Promise<Readable> {
     const output = new PassThrough({ highWaterMark: 1024 * 1024 });
     const chunks = entry.chunks ?? [];
 
     // Starts async reconstruction without blocking stream return
     const processChunks = async () => {
       try {
+        const active = new Set<Promise<void>>();
+
         for await (const { data } of this.fetchChunksSmart(chunks, chunkSource)) {
-          await this.writeToStream(data, output);
+          const task = (async () => {
+            await this.writeToStream(data, output);
+          })();
+
+          task.finally(() => active.delete(task));
+
+          active.add(task);
+
+          if (active.size >= maxConcurrency) {
+            await Promise.race(active);
+          }
         }
 
+        await Promise.all(active);
         output.end();
       } catch (err) {
         output.destroy(err instanceof Error ? err : new Error(String(err)));

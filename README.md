@@ -34,7 +34,7 @@ In order to use the rac-delta SDK, you will need to create a RacDeltaClient, the
 ```ts
 import { RacDeltaClient } from 'rac-delta';
 
-const racDeltaClient = new RacDeltaClient({
+const racDeltaClient = await RacDeltaClient.create({
   chunkSize: 1024 * 1024,
   maxConcurrency: 6,
   storage: {

@@ -119,6 +119,11 @@ export interface ReconstructionService {
    *
    * @param entry The FileEntry containing the list of chunks of the file
    * @param chunkSource the source implementations of the chunks
+   * @param maxConcurrency the max concurrent entries that will be processed
    */
-  reconstructToStream(entry: FileEntry, chunkSource: ChunkSource): Promise<Readable>;
+  reconstructToStream(
+    entry: FileEntry,
+    chunkSource: ChunkSource,
+    maxConcurrency: number
+  ): Promise<Readable>;
 }
