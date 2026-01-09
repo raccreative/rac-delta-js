@@ -116,7 +116,7 @@ export class StorageChunkSource implements ChunkSource {
               throw new ChunkNotFoundException(`${hash} not found in storage`);
             }
 
-            const pass = new PassThrough({ highWaterMark: 64 * 1024 });
+            const pass = new PassThrough({ highWaterMark: 1024 * 1024 });
 
             stream.on('error', (err) => {
               workerError = err instanceof Error ? err : new Error(String(err));
