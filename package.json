@@ -1,7 +1,7 @@
 {
   "name": "rac-delta",
   "description": "Storage agnostic delta patching implementation of rac-delta protocol for NodeJs. With streaming support and file reconstruction.",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "repository": {

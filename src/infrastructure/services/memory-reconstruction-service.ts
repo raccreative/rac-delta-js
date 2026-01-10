@@ -169,38 +169,48 @@ export class MemoryReconstructionService implements ReconstructionService {
     chunkSource: ChunkSource,
     maxConcurrency: number = 5
   ): Promise<Readable> {
-    const output = new PassThrough({ highWaterMark: 1024 * 1024 });
     const chunks = entry.chunks ?? [];
 
-    // Starts async reconstruction without blocking stream return
-    const processChunks = async () => {
+    const iterator = this.fetchChunksSmart(chunks, chunkSource, true);
+
+    const pass = new PassThrough({ highWaterMark: 2 * 1024 * 1024 });
+
+    (async () => {
       try {
         const active = new Set<Promise<void>>();
 
-        for await (const { data } of this.fetchChunksSmart(chunks, chunkSource)) {
+        for await (const { data } of iterator) {
           const task = (async () => {
-            await this.writeToStream(data, output);
+            if (Buffer.isBuffer(data)) {
+              if (!pass.write(data)) {
+                await new Promise<void>((resolve) => pass.once('drain', resolve));
+              }
+            } else {
+              await new Promise<void>((resolve, reject) => {
+                data.on('error', reject);
+                pass.on('error', reject);
+                data.pipe(pass, { end: false });
+                data.on('end', resolve);
+              });
+            }
           })();
 
+          active.add(task);
           task.finally(() => active.delete(task));
 
-          active.add(task);
-
           if (active.size >= maxConcurrency) {
-            await Promise.race(active);
+            const finished = await Promise.race(active);
           }
         }
 
         await Promise.all(active);
-        output.end();
+        pass.end();
       } catch (err) {
-        output.destroy(err instanceof Error ? err : new Error(String(err)));
+        pass.destroy(err instanceof Error ? err : new Error(String(err)));
       }
-    };
+    })();
 
-    void processChunks();
-
-    return output;
+    return pass;
   }
 
   private async fileExists(path: string): Promise<boolean> {
@@ -385,8 +395,7 @@ export class MemoryReconstructionService implements ReconstructionService {
     }
 
     if (Buffer.isBuffer(data)) {
-      const canContinue = stream.write(data);
-      if (!canContinue) {
+      if (!stream.write(data)) {
         await new Promise<void>((resolve) => stream.once('drain', resolve));
       }
 
@@ -396,38 +405,25 @@ export class MemoryReconstructionService implements ReconstructionService {
 
     let totalBytes = 0;
 
-    await new Promise<void>((resolve, reject) => {
-      const onError = (err: unknown) => {
-        cleanup();
-        reject(err instanceof Error ? err : new Error(String(err)));
-      };
+    await pipeline(
+      data,
+      new Writable({
+        write(chunk, _encoding, callBack) {
+          totalBytes += chunk.length;
 
-      const onEnd = () => {
-        cleanup();
-        onFinish?.(totalBytes);
-        resolve();
-      };
+          if (!stream.write(chunk)) {
+            stream.once('drain', callBack);
+          } else {
+            callBack();
+          }
+        },
+        final(callBack) {
+          callBack();
+        },
+      })
+    );
 
-      const cleanup = () => {
-        data.off('error', onError);
-        data.off('end', onEnd);
-        stream.off('error', onError);
-      };
-
-      data.on('error', onError);
-      stream.on('error', onError);
-      data.on('end', onEnd);
-
-      data.on('data', (chunk) => {
-        totalBytes += chunk.length;
-
-        const canContinue = stream.write(chunk);
-        if (!canContinue) {
-          data.pause();
-          stream.once('drain', () => data.resume());
-        }
-      });
-    });
+    onFinish?.(totalBytes);
   }
 
   private async *fetchChunksSmart(
