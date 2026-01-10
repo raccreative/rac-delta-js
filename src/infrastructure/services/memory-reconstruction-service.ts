@@ -170,8 +170,12 @@ export class MemoryReconstructionService implements ReconstructionService {
     maxConcurrency = 5
   ): Promise<Readable> {
     const chunks = entry.chunks ?? [];
-    const pass = new PassThrough({ highWaterMark: 2 * 1024 * 1024 });
+    const pass = new PassThrough({ highWaterMark: 1024 * 1024 });
     const iterator = this.fetchChunksSmart(chunks, chunkSource, true);
+
+    pass.once('error', (err) => {
+      pass.destroy(err);
+    });
 
     (async () => {
       const active = new Set<Promise<void>>();
@@ -183,11 +187,9 @@ export class MemoryReconstructionService implements ReconstructionService {
           }
         } else {
           await new Promise<void>((resolve, reject) => {
-            const onError = (err: Error) => reject(err);
-            data.once('error', onError);
-            pass.once('error', onError);
-            data.once('end', resolve);
             data.pipe(pass, { end: false });
+            data.once('error', reject);
+            data.once('end', resolve);
           });
         }
       };

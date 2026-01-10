@@ -65,7 +65,6 @@ export class StorageChunkSource implements ChunkSource {
       return;
     }
 
-    const controller = new AbortController();
     const queue = hashes.map((hash, index) => ({ hash, index }));
 
     const results = new Map<number, { hash: string; data: Readable }>();
@@ -86,8 +85,8 @@ export class StorageChunkSource implements ChunkSource {
 
     const waitForData = async () => {
       while (
-        (preserveOrder && !results.has(nextIndexToEmit) && workerError === null) ||
-        (!preserveOrder && results.size === 0 && workerError === null)
+        (preserveOrder && !results.has(nextIndexToEmit) && !workerError) ||
+        (!preserveOrder && results.size === 0 && !workerError)
       ) {
         await new Promise<void>((resolve) => pendingResolvers.push(resolve));
       }
@@ -97,45 +96,30 @@ export class StorageChunkSource implements ChunkSource {
       activeWorkers++;
 
       try {
-        while (queue.length > 0 && !controller.signal.aborted) {
+        while (queue.length > 0 && !workerError) {
           const { hash, index } = queue.shift()!;
 
           try {
-            const url = this.urlsMap?.get(hash);
-
-            if (!url && this.storage.type === 'url') {
-              throw new Error(`No URL found for hash: ${hash}`);
-            }
-
             const stream =
               this.storage.type === 'hash'
                 ? await (this.storage as unknown as HashStorageAdapter).getChunk(hash)
-                : await (this.storage as unknown as UrlStorageAdapter).getChunkByUrl(url as string);
+                : await (this.storage as unknown as UrlStorageAdapter).getChunkByUrl(
+                    this.urlsMap?.get(hash)!
+                  );
 
             if (!stream) {
-              throw new ChunkNotFoundException(`${hash} not found in storage`);
+              throw new ChunkNotFoundException(`Chunk ${hash} not found in storage`);
             }
 
-            const pass = new PassThrough({ highWaterMark: 1024 * 1024 });
-
-            stream.on('error', (err) => {
+            stream.once('error', (err) => {
               workerError = err instanceof Error ? err : new Error(String(err));
-              controller.abort();
               signalNext();
             });
 
-            pass.on('error', (err) => {
-              workerError = err instanceof Error ? err : new Error(String(err));
-              controller.abort();
-              signalNext();
-            });
-
-            stream.pipe(pass);
-            results.set(index, { hash, data: pass });
+            results.set(index, { hash, data: stream });
             signalNext();
-          } catch (error) {
-            workerError = error instanceof Error ? error : new Error(String(error));
-            controller.abort();
+          } catch (err) {
+            workerError = err instanceof Error ? err : new Error(String(err));
             signalNext();
             return;
           }
@@ -145,8 +129,9 @@ export class StorageChunkSource implements ChunkSource {
 
         if (activeWorkers === 0) {
           workersDone = true;
-          signalNext();
         }
+
+        signalNext();
       }
     };
 
@@ -157,12 +142,10 @@ export class StorageChunkSource implements ChunkSource {
         await waitForData();
 
         if (workerError) {
-          // ensure workers settle so their promise rejections don't become unhandled
           await Promise.allSettled(workers);
           throw workerError;
         }
 
-        // Emit strictly in order
         if (preserveOrder) {
           while (results.has(nextIndexToEmit)) {
             yield results.get(nextIndexToEmit)!;
@@ -171,7 +154,6 @@ export class StorageChunkSource implements ChunkSource {
           }
         }
 
-        // Emit as soon as any result is ready
         if (!preserveOrder) {
           const [index, value] = results.entries().next().value ?? [];
 
@@ -186,7 +168,6 @@ export class StorageChunkSource implements ChunkSource {
         }
       }
     } finally {
-      controller.abort();
       await Promise.allSettled(workers);
     }
   }

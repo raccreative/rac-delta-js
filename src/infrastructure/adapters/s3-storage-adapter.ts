@@ -1,4 +1,4 @@
-import { Readable } from 'stream';
+import { Readable, PassThrough } from 'stream';
 import {
   S3Client,
   GetObjectCommand,
@@ -42,7 +42,11 @@ export class S3StorageAdapter extends HashStorageAdapter {
         new GetObjectCommand({ Bucket: this.config.bucket, Key: key })
       );
 
-      return res.Body as Readable;
+      const s3Stream = res.Body as Readable;
+      const pass = new PassThrough({ highWaterMark: 1024 * 1024 });
+      s3Stream.pipe(pass);
+
+      return pass;
     } catch (error) {
       if (error instanceof NoSuchKey) {
         return null;
