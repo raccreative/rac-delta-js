@@ -167,39 +167,39 @@ export class MemoryReconstructionService implements ReconstructionService {
   async reconstructToStream(
     entry: FileEntry,
     chunkSource: ChunkSource,
-    maxConcurrency: number = 5
+    maxConcurrency = 5
   ): Promise<Readable> {
     const chunks = entry.chunks ?? [];
-
+    const pass = new PassThrough({ highWaterMark: 2 * 1024 * 1024 });
     const iterator = this.fetchChunksSmart(chunks, chunkSource, true);
 
-    const pass = new PassThrough({ highWaterMark: 2 * 1024 * 1024 });
-
     (async () => {
+      const active = new Set<Promise<void>>();
+
+      const pipeChunk = async (data: Buffer | Readable) => {
+        if (Buffer.isBuffer(data)) {
+          if (!pass.write(data)) {
+            await new Promise<void>((resolve) => pass.once('drain', resolve));
+          }
+        } else {
+          await new Promise<void>((resolve, reject) => {
+            const onError = (err: Error) => reject(err);
+            data.once('error', onError);
+            pass.once('error', onError);
+            data.once('end', resolve);
+            data.pipe(pass, { end: false });
+          });
+        }
+      };
+
       try {
-        const active = new Set<Promise<void>>();
-
         for await (const { data } of iterator) {
-          const task = (async () => {
-            if (Buffer.isBuffer(data)) {
-              if (!pass.write(data)) {
-                await new Promise<void>((resolve) => pass.once('drain', resolve));
-              }
-            } else {
-              await new Promise<void>((resolve, reject) => {
-                data.on('error', reject);
-                pass.on('error', reject);
-                data.pipe(pass, { end: false });
-                data.on('end', resolve);
-              });
-            }
-          })();
-
+          const task = pipeChunk(data);
           active.add(task);
           task.finally(() => active.delete(task));
 
           if (active.size >= maxConcurrency) {
-            const finished = await Promise.race(active);
+            await Promise.race(active);
           }
         }
 
