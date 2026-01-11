@@ -59,7 +59,8 @@ export class StorageChunkSource implements ChunkSource {
     {
       concurrency = 4,
       preserveOrder = true,
-    }: { concurrency?: number; preserveOrder?: boolean } = {}
+      maxPrefetch = 12,
+    }: { concurrency?: number; preserveOrder?: boolean; maxPrefetch?: number } = {}
   ): AsyncGenerator<{ hash: string; data: Readable }> {
     if (hashes.length === 0) {
       return;
@@ -73,11 +74,19 @@ export class StorageChunkSource implements ChunkSource {
     let workersDone = false;
 
     const pendingResolvers: (() => void)[] = [];
+    const pendingSlotResolvers: (() => void)[] = [];
 
     let workerError: Error | null = null;
 
     const signalNext = () => {
       const resolver = pendingResolvers.shift();
+      if (resolver) {
+        resolver();
+      }
+    };
+
+    const signalSlot = () => {
+      const resolver = pendingSlotResolvers.shift();
       if (resolver) {
         resolver();
       }
@@ -97,6 +106,14 @@ export class StorageChunkSource implements ChunkSource {
 
       try {
         while (queue.length > 0 && !workerError) {
+          while (results.size >= maxPrefetch && !workerError) {
+            await new Promise<void>((resolve) => pendingSlotResolvers.push(resolve));
+          }
+
+          if (workerError) {
+            return;
+          }
+
           const { hash, index } = queue.shift()!;
 
           try {
@@ -150,6 +167,7 @@ export class StorageChunkSource implements ChunkSource {
           while (results.has(nextIndexToEmit)) {
             yield results.get(nextIndexToEmit)!;
             results.delete(nextIndexToEmit);
+            signalSlot();
             nextIndexToEmit++;
           }
         }
@@ -160,6 +178,7 @@ export class StorageChunkSource implements ChunkSource {
           if (value !== undefined && index !== undefined) {
             yield value;
             results.delete(index);
+            signalSlot();
           }
         }
 

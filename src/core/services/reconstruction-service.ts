@@ -75,10 +75,11 @@ export interface ChunkSource {
    *
    * @param options.concurrency Number of parallel fetches (default 8)
    * @param options.preserveOrder Whether to yield in input order (default true)
+   * @param options.maxPrefetch Number of max chunk prefetchs to storage (default 12)
    */
   streamChunks?(
     hashes: string[],
-    options?: Nullish<{ concurrency?: number; preserveOrder?: boolean }>
+    options?: Nullish<{ concurrency?: number; preserveOrder?: boolean; maxPrefetch?: number }>
   ): AsyncGenerator<{ hash: string; data: Readable }>;
 }
 

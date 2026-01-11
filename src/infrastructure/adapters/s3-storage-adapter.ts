@@ -42,11 +42,7 @@ export class S3StorageAdapter extends HashStorageAdapter {
         new GetObjectCommand({ Bucket: this.config.bucket, Key: key })
       );
 
-      const s3Stream = res.Body as Readable;
-      const pass = new PassThrough({ highWaterMark: 1024 * 1024 });
-      s3Stream.pipe(pass);
-
-      return pass;
+      return res.Body as Readable;
     } catch (error) {
       if (error instanceof NoSuchKey) {
         return null;
