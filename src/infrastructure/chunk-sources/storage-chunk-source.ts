@@ -114,7 +114,12 @@ export class StorageChunkSource implements ChunkSource {
             return;
           }
 
-          const { hash, index } = queue.shift()!;
+          const item = queue.shift();
+          if (!item) {
+            continue;
+          }
+
+          const { hash, index } = item;
 
           try {
             const stream =
@@ -149,6 +154,7 @@ export class StorageChunkSource implements ChunkSource {
         }
 
         signalNext();
+        signalSlot();
       }
     };
 
