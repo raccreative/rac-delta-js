@@ -164,13 +164,9 @@ export class MemoryReconstructionService implements ReconstructionService {
   }
 
   // This will reconstruct to stream, not to disk
-  async reconstructToStream(
-    entry: FileEntry,
-    chunkSource: ChunkSource,
-    maxConcurrency = 5
-  ): Promise<Readable> {
+  async reconstructToStream(entry: FileEntry, chunkSource: ChunkSource): Promise<Readable> {
     const chunks = entry.chunks ?? [];
-    const pass = new PassThrough({ highWaterMark: 1024 * 1024 });
+    const pass = new PassThrough({ highWaterMark: 2 * 1024 * 1024 });
     const iterator = this.fetchChunksSmart(chunks, chunkSource, true);
 
     pass.once('error', (err) => {
@@ -179,35 +175,34 @@ export class MemoryReconstructionService implements ReconstructionService {
 
     (async () => {
       const active = new Set<Promise<void>>();
-
-      const pipeChunk = async (data: Buffer | Readable) => {
-        if (Buffer.isBuffer(data)) {
-          if (!pass.write(data)) {
-            await new Promise<void>((resolve) => pass.once('drain', resolve));
-          }
-        } else {
-          await new Promise<void>((resolve, reject) => {
-            data.pipe(pass, { end: false });
-            data.once('error', reject);
-            data.once('end', resolve);
-          });
-        }
-      };
-
       try {
         for await (const { data } of iterator) {
-          const task = pipeChunk(data);
-          active.add(task);
-          task.finally(() => active.delete(task));
+          if (Buffer.isBuffer(data)) {
+            if (!pass.write(data)) {
+              await new Promise<void>((resolve) => pass.once('drain', resolve));
+            }
+          } else {
+            await new Promise<void>((resolve, reject) => {
+              data.pipe(pass, { end: false });
 
-          if (active.size >= maxConcurrency) {
-            await Promise.race(active);
+              data.once('error', (err) => {
+                (pass.destroy(err), reject(err));
+              });
+
+              data.once('end', resolve);
+
+              data.once('close', () => {
+                if (!data.destroyed) {
+                  console.warn('Chunk stream closed unexpectedly');
+                }
+              });
+            });
           }
         }
 
-        await Promise.all(active);
         pass.end();
       } catch (err) {
+        console.error('Error during reconstruction: ', err);
         pass.destroy(err instanceof Error ? err : new Error(String(err)));
       }
     })();
