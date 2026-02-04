@@ -29,6 +29,8 @@ export class MemoryReconstructionService implements ReconstructionService {
 
     await mkdir(dir, { recursive: true });
 
+    const activePaths = new Set<string>();
+
     const files = [...plan.newAndModifiedFiles];
     const total = files.length;
     let completed = 0;
@@ -56,6 +58,13 @@ export class MemoryReconstructionService implements ReconstructionService {
       while (queue.length && !error) {
         const { entry } = queue.shift()!;
         const outputPath = join(dir, entry.path);
+
+        if (activePaths.has(outputPath)) {
+          queue.push({ entry, index: 0 });
+          continue;
+        }
+
+        activePaths.add(outputPath);
 
         try {
           await this.reconstructFile(entry, outputPath, chunkSource, {
@@ -95,6 +104,8 @@ export class MemoryReconstructionService implements ReconstructionService {
         } catch (err) {
           error = err instanceof Error ? err : new Error(String(err));
           break;
+        } finally {
+          activePaths.delete(outputPath);
         }
       }
     };
@@ -158,7 +169,9 @@ export class MemoryReconstructionService implements ReconstructionService {
         );
       }
     } catch (err) {
-      await rm(tempPath, { force: true });
+      try {
+        await rm(tempPath, { force: true });
+      } catch {}
       throw err;
     }
   }
@@ -264,6 +277,8 @@ export class MemoryReconstructionService implements ReconstructionService {
     force: boolean,
     progressCb?: (chunkBytes: number, netBytes: number, processedChunks: number) => void
   ): Promise<void> {
+    await mkdir(dirname(tempPath), { recursive: true });
+
     const writeStream = createWriteStream(tempPath, { flags: 'w' });
 
     let writeError: Error | null = null;
@@ -312,9 +327,6 @@ export class MemoryReconstructionService implements ReconstructionService {
         } catch (err) {
           writeStream.destroy();
           throw err;
-        } finally {
-          writeStream.removeListener('error', onWriteError);
-          writeStream.end();
         }
       }
 
@@ -333,7 +345,14 @@ export class MemoryReconstructionService implements ReconstructionService {
 
       await rename(tempPath, outputPath);
     } catch (err) {
+      try {
+        writeStream.destroy();
+        await rm(tempPath, { force: true });
+      } catch {}
+
       throw err;
+    } finally {
+      writeStream.removeListener('error', onWriteError);
     }
   }
 

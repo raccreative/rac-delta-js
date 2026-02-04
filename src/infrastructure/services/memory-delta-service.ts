@@ -179,13 +179,18 @@ export class MemoryDeltaService implements DeltaService {
       const sourceChunkKeys = new Set(srcFile.chunks.map((c) => `${c.hash}@${c.offset}`));
 
       // File exists -> compare chunks
+      let fileModified = false;
       for (const chunk of srcFile.chunks) {
         const key = `${chunk.hash}@${chunk.offset}`;
 
         if (!targetChunks.has(key)) {
           deltaPlan.missingChunks.push({ ...chunk, filePath: srcFile.path });
-          deltaPlan.newAndModifiedFiles.push(srcFile);
+          fileModified = true;
         }
+      }
+
+      if (fileModified) {
+        deltaPlan.newAndModifiedFiles.push(srcFile);
       }
 
       // Check obsolete chunks in target that are not in source
