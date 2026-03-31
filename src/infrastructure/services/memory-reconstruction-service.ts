@@ -13,7 +13,7 @@ import {
 } from '../../core/services';
 import { ChunkNotFoundException } from '../../core/exceptions';
 import { DeltaPlan, FileEntry, Chunk } from '../../core/models';
-import { streamToBuffer } from '../../core/utils';
+import { checkAbort, streamToBuffer } from '../../core/utils';
 import { Nullish } from '../../core/types';
 
 export class MemoryReconstructionService implements ReconstructionService {
@@ -56,6 +56,8 @@ export class MemoryReconstructionService implements ReconstructionService {
 
     const next = async (): Promise<void> => {
       while (queue.length && !error) {
+        checkAbort(options?.signal);
+
         const { entry } = queue.shift()!;
         const outputPath = join(dir, entry.path);
 
@@ -155,7 +157,13 @@ export class MemoryReconstructionService implements ReconstructionService {
 
     try {
       if (existingLargeFileWithoutRebuild && inPlaceReconstructionThreshold !== 0) {
-        await this.reconstructInPlace(entry, defOutputPath, chunkSource, progressCb);
+        await this.reconstructInPlace(
+          entry,
+          defOutputPath,
+          chunkSource,
+          options.signal,
+          progressCb
+        );
       } else {
         await this.reconstructToTemp(
           entry,
@@ -165,6 +173,7 @@ export class MemoryReconstructionService implements ReconstructionService {
           !!verifyAfterRebuild,
           exists,
           !!options.forceRebuild,
+          options.signal,
           progressCb
         );
       }
@@ -237,6 +246,7 @@ export class MemoryReconstructionService implements ReconstructionService {
     entry: FileEntry,
     outputPath: string,
     chunkSource: ChunkSource,
+    signal?: Nullish<AbortSignal>,
     progressCb?: (chunkBytes: number, netBytes: number, processedChunks: number) => void
   ): Promise<void> {
     const fd = await open(outputPath, 'r+');
@@ -248,6 +258,8 @@ export class MemoryReconstructionService implements ReconstructionService {
       let processed = 0;
 
       for await (const { hash, data } of this.fetchChunksSmart(entry.chunks, chunkSource, false)) {
+        checkAbort(signal);
+
         const chunk = chunkMap.get(hash);
         if (!chunk) {
           continue;
@@ -275,6 +287,7 @@ export class MemoryReconstructionService implements ReconstructionService {
     verifyAfterRebuild: boolean,
     fileExists: boolean,
     force: boolean,
+    signal?: Nullish<AbortSignal>,
     progressCb?: (chunkBytes: number, netBytes: number, processedChunks: number) => void
   ): Promise<void> {
     await mkdir(dirname(tempPath), { recursive: true });
@@ -297,6 +310,8 @@ export class MemoryReconstructionService implements ReconstructionService {
         const readFd = await open(outputPath, 'r');
         try {
           for (const chunk of entry.chunks) {
+            checkAbort(signal);
+
             await this.processChunkDataSmart(chunk, readFd, chunkSource, writeStream);
 
             processed++;
@@ -311,6 +326,8 @@ export class MemoryReconstructionService implements ReconstructionService {
       if (!fileExists || force) {
         try {
           for await (const { data } of this.fetchChunksSmart(entry.chunks, chunkSource)) {
+            checkAbort(signal);
+
             let totalWritten = 0;
 
             await this.writeToStream(data, writeStream, (totalBytes) => {

@@ -8,6 +8,7 @@ import { ChunkEntry, DeltaPlan, RDIndex } from '../../core/models';
 import { streamToBuffer } from '../../core/utils/stream-to-buffer';
 import { HashStorageAdapter } from '../../core/adapters';
 import { RacDeltaConfig } from '../../core/config';
+import { checkAbort } from '../../core/utils';
 import { Nullish } from '../../core/types';
 
 import { StorageChunkSource } from '../chunk-sources/storage-chunk-source';
@@ -32,7 +33,10 @@ export class DefaultHashDownloadPipeline extends HashDownloadPipeline {
     options?: Nullish<DownloadOptions>
   ): Promise<void> {
     try {
+      checkAbort(options?.signal);
+
       this.changeState('scanning', options);
+
       const localIndex = !options?.force
         ? options?.useExistingIndex
           ? ((await this.findLocalIndex(localDir)) ?? (await this.loadLocalIndex(localDir)))
@@ -59,6 +63,8 @@ export class DefaultHashDownloadPipeline extends HashDownloadPipeline {
         return;
       }
 
+      checkAbort(options?.signal);
+
       let chunkSource: ChunkSource | null = null;
 
       if (strategy === UpdateStrategy.DownloadAllFirstToMemory) {
@@ -81,12 +87,16 @@ export class DefaultHashDownloadPipeline extends HashDownloadPipeline {
       }
 
       if (plan.newAndModifiedFiles.length) {
+        checkAbort(options?.signal);
+
         this.changeState('reconstructing', options);
+
         await this.reconstruction.reconstructAll(plan, localDir, chunkSource, {
           forceRebuild: options?.force,
           verifyAfterRebuild: true,
           fileConcurrency: options?.fileReconstructionConcurrency,
           inPlaceReconstructionThreshold: options?.inPlaceReconstructionThreshold,
+          signal: options?.signal,
           onProgress: (reconstructProgress, diskSpeed, networkProgress, networkSpeed) => {
             this.updateProgress(
               reconstructProgress,
@@ -104,7 +114,10 @@ export class DefaultHashDownloadPipeline extends HashDownloadPipeline {
       }
 
       if (plan.obsoleteChunks.length || plan.deletedFiles.length) {
+        checkAbort(options?.signal);
+
         this.changeState('cleaning', options);
+
         await this.verifyAndDeleteObsoleteChunks(
           plan,
           localDir,
@@ -165,6 +178,8 @@ export class DefaultHashDownloadPipeline extends HashDownloadPipeline {
 
     const worker = async () => {
       while (queue.length) {
+        checkAbort(options?.signal);
+
         const chunk = queue.pop()!;
         const readable = await this.storage.getChunk(chunk.hash);
         if (!readable) {
@@ -224,6 +239,8 @@ export class DefaultHashDownloadPipeline extends HashDownloadPipeline {
     let completedFiles = 0;
 
     for (const filePath of allFiles) {
+      checkAbort(options?.signal);
+
       const absPath = join(dir, filePath);
       const remoteFile = remoteIndex.files.find((file) => file.path === filePath);
 

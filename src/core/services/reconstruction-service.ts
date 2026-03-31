@@ -40,6 +40,13 @@ export interface ReconstructionOptions {
   fileConcurrency?: Nullish<number>;
 
   /**
+   * AbortSignal for cooperative cancellation.
+   * Checked between files and between chunk writes.
+   * Any .tmp in progress is discarded cleanly before throwing.
+   */
+  signal?: Nullish<AbortSignal>;
+
+  /**
    * Callback that returns disk usage and optional network speed (only for storage chunk sources via streaming download-reconstruction)
    *
    * @param reconstructProgress current reconstruction progress

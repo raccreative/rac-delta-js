@@ -80,6 +80,25 @@ export interface DownloadOptions {
    * Optinal callback for state changes.
    */
   onStateChange?: (state: 'downloading' | 'reconstructing' | 'cleaning' | 'scanning') => void;
+
+  /**
+   * AbortSignal for cooperative cancellation of the download.
+   *
+   * When aborted, the pipeline stops at the next safe checkpoint (between files
+   * or between chunks). Files already fully reconstructed on disk are kept.
+   * Any file that was mid-reconstruction has its .tmp discarded cleanly.
+   *
+   * On the next 'execute()' call, rac-delta will automatically diff the local
+   * directory against the remote index and only download what is still missing -
+   * effectively resuming from where it stopped.
+   *
+   * @example
+   * const controller = new AbortController();
+   * pipeline.execute(dir, strategy, index, { signal: controller.signal });
+   * // later:
+   * controller.abort();
+   */
+  signal?: Nullish<AbortSignal>;
 }
 
 export abstract class DownloadPipeline {
