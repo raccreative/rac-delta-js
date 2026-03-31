@@ -123,13 +123,41 @@ describe('DefaultHashDownloadPipeline — abort signal', () => {
     );
 
     const controller = new AbortController();
+    let filesReconstructed = 0;
 
-    setTimeout(() => controller.abort(), 20);
+    const wrappedReconstruction = new Proxy(reconstruction, {
+      get(target, prop) {
+        if (prop === 'reconstructFile') {
+          return async (...args: Parameters<typeof target.reconstructFile>) => {
+            await target.reconstructFile(...args);
+            filesReconstructed++;
+            if (filesReconstructed === 2) {
+              controller.abort();
+            }
+          };
+        }
+        return (target as any)[prop];
+      },
+    });
+
+    const pipelineWithWrappedReconstruction = new DefaultHashDownloadPipeline(
+      wrappedReconstruction,
+      validation,
+      storage,
+      { maxConcurrency: 2, chunkSize: 1024, storage: { type: 'local', basePath: tmp } },
+      delta
+    );
 
     await expect(
-      pipeline.execute(tmp, UpdateStrategy.StreamFromNetwork, remoteIndex, {
-        signal: controller.signal,
-      })
+      pipelineWithWrappedReconstruction.execute(
+        tmp,
+        UpdateStrategy.StreamFromNetwork,
+        remoteIndex,
+        {
+          signal: controller.signal,
+          fileReconstructionConcurrency: 1,
+        }
+      )
     ).rejects.toSatisfy(isAbortError);
 
     const { readdir } = await import('fs/promises');
@@ -140,7 +168,7 @@ describe('DefaultHashDownloadPipeline — abort signal', () => {
 
   test('files fully reconstructed before abort are intact on disk', async () => {
     const first = await createChunk('first file content');
-    const second = await createChunk('second file content — much longer so it takes more time');
+    const second = await createChunk('second file content');
 
     const remoteIndex = buildRemoteIndex([
       { path: 'first.txt', hash: first.hash, size: first.content.length },
@@ -148,11 +176,33 @@ describe('DefaultHashDownloadPipeline — abort signal', () => {
     ]);
 
     const controller = new AbortController();
+    let filesReconstructed = 0;
 
-    setTimeout(() => controller.abort(), 30);
+    const wrappedReconstruction = new Proxy(reconstruction, {
+      get(target, prop) {
+        if (prop === 'reconstructFile') {
+          return async (...args: Parameters<typeof target.reconstructFile>) => {
+            await target.reconstructFile(...args);
+            filesReconstructed++;
+            if (filesReconstructed === 1) {
+              controller.abort();
+            }
+          };
+        }
+        return (target as any)[prop];
+      },
+    });
+
+    const piplineWithWrappedReconstruction = new DefaultHashDownloadPipeline(
+      wrappedReconstruction,
+      validation,
+      storage,
+      { maxConcurrency: 2, chunkSize: 1024, storage: { type: 'local', basePath: tmp } },
+      delta
+    );
 
     await expect(
-      pipeline.execute(tmp, UpdateStrategy.StreamFromNetwork, remoteIndex, {
+      piplineWithWrappedReconstruction.execute(tmp, UpdateStrategy.StreamFromNetwork, remoteIndex, {
         signal: controller.signal,
         fileReconstructionConcurrency: 1,
       })
@@ -167,6 +217,8 @@ describe('DefaultHashDownloadPipeline — abort signal', () => {
     const allFiles = await readdir(tmp);
     const tmpFiles = allFiles.filter((f) => f.endsWith('.tmp'));
     expect(tmpFiles).toHaveLength(0);
+
+    expect(filesReconstructed).toBeGreaterThanOrEqual(1);
   });
 
   test('rd-index.json is NOT saved when download is aborted', async () => {
@@ -197,11 +249,35 @@ describe('DefaultHashDownloadPipeline — abort signal', () => {
     );
 
     const controller = new AbortController();
-    setTimeout(() => controller.abort(), 10);
+    let filesReconstructed = 0;
+
+    const wrappedReconstruction = new Proxy(reconstruction, {
+      get(target, prop) {
+        if (prop === 'reconstructFile') {
+          return async (...args: Parameters<typeof target.reconstructFile>) => {
+            await target.reconstructFile(...args);
+            filesReconstructed++;
+            if (filesReconstructed === 1) {
+              controller.abort();
+            }
+          };
+        }
+        return (target as any)[prop];
+      },
+    });
+
+    const pipelineFirstRun = new DefaultHashDownloadPipeline(
+      wrappedReconstruction,
+      validation,
+      storage,
+      { maxConcurrency: 2, chunkSize: 1024, storage: { type: 'local', basePath: tmp } },
+      delta
+    );
 
     await expect(
-      pipeline.execute(tmp, UpdateStrategy.StreamFromNetwork, remoteIndex, {
+      pipelineFirstRun.execute(tmp, UpdateStrategy.StreamFromNetwork, remoteIndex, {
         signal: controller.signal,
+        fileReconstructionConcurrency: 1,
       })
     ).rejects.toSatisfy(isAbortError);
 
