@@ -13,12 +13,19 @@ export interface S3StorageConfig extends BaseStorageConfig {
   region?: Nullish<string>;
   bucket: string;
   // client: provide already configured client?
-  credentials: {
-    accessKeyId: string;
-    secretAccessKey: string;
-    sessionToken?: Nullish<string>;
-    expiration?: Nullish<Date>;
-  };
+  credentials:
+    | {
+        accessKeyId: string;
+        secretAccessKey: string;
+        sessionToken?: Nullish<string>;
+        expiration?: Nullish<Date>;
+      }
+    | (() => Promise<{
+        accessKeyId: string;
+        secretAccessKey: string;
+        sessionToken?: Nullish<string>;
+        expiration?: Nullish<Date>;
+      }>);
 }
 
 export interface AzureBlobStorageConfig extends BaseStorageConfig {
