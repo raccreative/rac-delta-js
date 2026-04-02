@@ -94,7 +94,13 @@ export class MemoryReconstructionService implements ReconstructionService {
               const netSpeed = isNetworkSource ? globalBytesReceived / elapsed : 0;
 
               if (isNetworkSource) {
-                options?.onProgress?.(reconstructProgress, diskSpeed, networkProgress, netSpeed);
+                options?.onProgress?.(
+                  reconstructProgress,
+                  diskSpeed,
+                  networkProgress,
+                  netSpeed,
+                  globalBytesReceived
+                );
               } else {
                 options?.onProgress?.(reconstructProgress, diskSpeed);
               }

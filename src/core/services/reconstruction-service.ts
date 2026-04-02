@@ -53,12 +53,14 @@ export interface ReconstructionOptions {
    * @param diskSpeed speed of disk write in bytes per second
    * @param networkProgress current network progress if any
    * @param networkSpeed download speed in bytes per second
+   * @param bytesDownloaded total downloaded bytes
    */
   onProgress?: (
     reconstructProgress: number,
     diskSpeed: number,
     networkProgress?: Nullish<number>,
-    networkSpeed?: Nullish<number>
+    networkSpeed?: Nullish<number>,
+    bytesDownloaded?: Nullish<number>
   ) => void;
 }
 

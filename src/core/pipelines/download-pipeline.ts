@@ -73,7 +73,8 @@ export interface DownloadOptions {
     type: 'download' | 'deleting' | 'reconstructing',
     progress: number,
     diskUsage?: Nullish<number>,
-    speed?: Nullish<number>
+    speed?: Nullish<number>,
+    bytesDownloaded?: Nullish<number>
   ) => void;
 
   /**
@@ -107,9 +108,10 @@ export abstract class DownloadPipeline {
     state: 'download' | 'reconstructing' | 'deleting',
     diskUsage?: Nullish<number>,
     speed?: Nullish<number>,
-    options?: Nullish<DownloadOptions>
+    options?: Nullish<DownloadOptions>,
+    bytesDownloaded?: Nullish<number>
   ) {
-    options?.onProgress?.(state, value, diskUsage, speed);
+    options?.onProgress?.(state, value, diskUsage, speed, bytesDownloaded);
   }
 
   protected changeState(

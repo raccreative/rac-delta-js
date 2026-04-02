@@ -97,7 +97,13 @@ export class DefaultHashDownloadPipeline extends HashDownloadPipeline {
           fileConcurrency: options?.fileReconstructionConcurrency,
           inPlaceReconstructionThreshold: options?.inPlaceReconstructionThreshold,
           signal: options?.signal,
-          onProgress: (reconstructProgress, diskSpeed, networkProgress, networkSpeed) => {
+          onProgress: (
+            reconstructProgress,
+            diskSpeed,
+            networkProgress,
+            networkSpeed,
+            bytesDownloaded
+          ) => {
             this.updateProgress(
               reconstructProgress,
               'reconstructing',
@@ -107,7 +113,14 @@ export class DefaultHashDownloadPipeline extends HashDownloadPipeline {
             );
 
             if (networkProgress) {
-              this.updateProgress(networkProgress, 'download', 0, networkSpeed, options);
+              this.updateProgress(
+                networkProgress,
+                'download',
+                0,
+                networkSpeed,
+                options,
+                bytesDownloaded
+              );
             }
           },
         });
